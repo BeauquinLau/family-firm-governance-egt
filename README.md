@@ -100,7 +100,7 @@ These scripts demonstrate the system's evolutionary paths starting from three ke
 📌 **To run (example for initial point A):**
 ```matlab
 % In MATLAB, with the current directory set to 'Simulation/MATLAB_code/'
-run('A.m');      % Generates Figure 4.1
-run('A_p.m');    % Generates Figure 5.1
-run('A_q.m');    % Generates Figure 5.2
+run('A.m');
+run('A_p.m');
+run('A_q.m');
 ```
