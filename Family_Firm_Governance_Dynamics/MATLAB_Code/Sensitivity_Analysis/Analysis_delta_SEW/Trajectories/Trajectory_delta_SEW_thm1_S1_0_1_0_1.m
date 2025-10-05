@@ -1,0 +1,102 @@
+%%% TRAJECTORY_DELTA_SEW_THM1_S1_0_1_0_1.M - Trajectory Analysis for a Fixed Initial Point vs. DELTA_SEW %%%
+clear; clc; close all;
+
+%%% ===================================================================
+%%% === 1. DEFINE SYSTEM PARAMETERS (FIXED BASELINE FOR THEOREM 1)
+%%% ===================================================================
+% These are the baseline parameters for the Theorem 1 scenario
+phi = 0.3; m = 0.04; omega = 0.2; alpha = 0.5; beta = 0.5;
+V1 = 10; V2 = 5; V3 = 8; V4 = 15;
+f_PM = 1.2;
+n = 0.16;
+f_alpha = 1.0; % We fix f_alpha and vary f1 to change the SEW gap
+
+%%% ===================================================================
+%%% === 2. SIMULATION CONFIGURATION
+%%% ===================================================================
+% The valid range for delta_SEW was derived as [0, 2.55)
+delta_SEW_values = 0.1:0.2:2.5; % Select a range of values for delta_SEW to test
+% Define the single initial condition for all trajectories
+initial_condition = [0.1, 0.1];
+
+%%% ===================================================================
+%%% === 3. PLOTTING SETUP & TRAJECTORY CALCULATION
+%%% ===================================================================
+options = odeset('RelTol', 1e-6, 'AbsTol', 1e-9);
+figure('Units', 'inches', 'Position', [0 0 10 8]); 
+hold on;
+colors = parula(length(delta_SEW_values));
+legend_handles = gobjects(length(delta_SEW_values), 1);
+
+% --- Loop to plot trajectories for each 'delta_SEW' from the single initial point ---
+for i = 1:length(delta_SEW_values)
+    delta_SEW = delta_SEW_values(i);
+    f1 = f_alpha + delta_SEW; % Calculate f1 for the current delta_SEW
+    
+    % Create a function handle for the ODE with the current parameters
+    ode_function = @(t, y) replicator_dynamics_local(t, y, phi, m, n, omega, alpha, beta, V1, V2, V3, V4, f1, f_alpha, f_PM);
+    
+    % Solve for the trajectory
+    [~, Y] = ode45(ode_function, [0 500], initial_condition, options);
+    
+    % Create the legend label for delta_SEW
+    legend_label = sprintf('$\\Delta_{SEW} = %.2f$', delta_SEW);
+    
+    % Plot the trajectory and store its handle for the legend
+    h = plot(Y(:,1), Y(:,2), '-', 'Color', colors(i,:), 'LineWidth', 2, 'DisplayName', legend_label);
+    legend_handles(i) = h;
+end
+
+%%% ===================================================================
+%%% === 4. PLOT ANNOTATIONS
+%%% ===================================================================
+% Plot the initial starting point 'S1'
+plot(initial_condition(1), initial_condition(2), 'ks', 'MarkerSize', 12, 'MarkerFaceColor', 'r');
+text(initial_condition(1), initial_condition(2) + 0.04, '$S_1$', 'FontSize', 12, 'HorizontalAlignment', 'center', 'Interpreter', 'latex');
+
+% Plot the pure-strategy equilibria with correct stability colors for Theorem 1
+plot(0, 0, 'o', 'MarkerSize', 10, 'MarkerFaceColor', [0.8 0.3 0], 'MarkerEdgeColor', 'k'); % E1 is stable
+text(0-0.02, 0-0.03, '$E_1$', 'FontSize', 14, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', 'Interpreter', 'latex');
+plot(1, 1, 'o', 'MarkerSize', 10, 'MarkerFaceColor', [0.1 0.4 0.8], 'MarkerEdgeColor', 'k'); % E4 is stable
+text(1+0.02, 1+0.03, '$E_4$', 'FontSize', 14, 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'left', 'Interpreter', 'latex');
+color_unstable = [0.3 0.3 0.3]; 
+plot(0, 1, 'o', 'MarkerSize', 10, 'MarkerFaceColor', color_unstable, 'MarkerEdgeColor', 'k'); % E2 is unstable
+text(0-0.02, 1+0.03, '$E_2$', 'FontSize', 14, 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'right', 'Interpreter', 'latex');
+plot(1, 0, 'o', 'MarkerSize', 10, 'MarkerFaceColor', color_unstable, 'MarkerEdgeColor', 'k'); % E3 is unstable
+text(1+0.02, 0-0.03, '$E_3$', 'FontSize', 14, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', 'Interpreter', 'latex');
+
+%%% ===================================================================
+%%% === 5. FINAL FIGURE FORMATTING
+%%% ===================================================================
+axis([0 1 0 1]); axis square;
+xlabel('Family Strategy, $p$ (Probability of Concentration)','Interpreter','latex', 'FontSize', 14);
+ylabel('Manager Strategy, $q$ (Probability of Stewardship)','Interpreter','latex', 'FontSize', 14);
+title({'Trajectory Sensitivity to $\Delta_{SEW}$ from Stable Initial Point $S_1$ (0.1, 0.1)', '--- Theorem 1'},'Interpreter','latex', 'FontSize', 16);
+grid on; box on;
+set(gca, 'FontSize', 12, 'LineWidth', 1.2, 'FontName', 'Helvetica');
+hold off;
+
+% Create and format the legend
+lgd = legend(legend_handles, 'Interpreter', 'latex', 'Location', 'northeastoutside');
+lgd.Title.String = '\hspace{.5em}Trajectory for varying $\Delta_{SEW}$\hspace{.5em}';
+lgd.Title.Interpreter = 'latex';
+
+% Save Figure
+ax = gca;
+ax.Toolbar.Visible = 'off';
+outputFileName = 'Trajectory_delta_SEW_thm1_S1_0.1_0.1.pdf';
+exportgraphics(ax, outputFileName, 'ContentType', 'vector');
+disp(['Figure saved to: ' fullfile(pwd, outputFileName)]);
+
+%%% ===================================================================
+%%% === LOCAL FUNCTIONS
+%%% ===================================================================
+function dydt = replicator_dynamics_local(~, y, phi, m, n, omega, alpha, beta, V1, V2, V3, V4, f1, f_alpha, f_PM)
+    p=y(1); q=y(2); dydt=zeros(2,1);
+    U_FC = q*(1-omega)*V1 + (1-q)*(1-omega-phi+m)*V2 + f1;
+    U_FD = q*(alpha*(1-omega)+(1-beta)*(1-alpha)*(phi-n))*V3 + (1-q)*alpha*(1-omega-phi+m+n)*V4 + f_alpha;
+    U_PS = p*omega*V1 + (1-p)*(omega*V3 + beta*(1-alpha)*(phi-n)*V3) + f_PM;
+    U_PA = p*(omega+phi-m)*V2 + (1-p)*(omega+phi-m-n)*V4;
+    dydt(1) = p*(1-p)*(U_FC-U_FD);
+    dydt(2) = q*(1-q)*(U_PS-U_PA);
+end
